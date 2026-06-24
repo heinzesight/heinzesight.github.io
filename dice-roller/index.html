@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1a2e">
+<title>Dice Roller</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  :root {
+    --bg: #14142b;
+    --card: #1f1f3d;
+    --accent: #7c5cff;
+    --accent2: #00d4aa;
+    --text: #eef0ff;
+    --muted: #9aa0c8;
+    --crit: #ffce54;
+    --fumble: #ff6b6b;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  html { height: 100%; }
+  body {
+    box-sizing: border-box;
+    height: 100vh;
+    height: 100dvh;
+    padding: env(safe-area-inset-top) 14px calc(env(safe-area-inset-bottom) + 10px);
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  /* top controls stay fixed; results scroll below */
+  .top { flex: 0 0 auto; }
+  header {
+    text-align: center;
+    padding: 8px 0 8px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  header p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+
+  .input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  #macro {
+    flex: 1;
+    min-width: 0;
+    font-size: 18px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 2px solid transparent;
+    background: var(--card);
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+  #macro:focus { border-color: var(--accent); }
+  #macro::placeholder { color: var(--muted); }
+  #rollBtn {
+    font-size: 18px;
+    font-weight: 700;
+    padding: 0 22px;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent), #5a3cff);
+    color: #fff;
+    cursor: pointer;
+    transition: transform .08s, filter .15s;
+  }
+  #rollBtn:active { transform: scale(0.94); filter: brightness(1.1); }
+  #saveBtn {
+    font-size: 22px;
+    padding: 0 16px;
+    border: 1px solid #36366a;
+    border-radius: 14px;
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    transition: transform .08s, color .15s;
+  }
+  #saveBtn:active { transform: scale(0.94); color: var(--crit); }
+
+  .saved {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .saved:empty { display: none; }
+  .saved-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 8px 8px 14px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #2a2350, #20203f);
+    border: 1px solid #3d3d70;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .saved-chip:active { border-color: var(--accent); }
+  .saved-chip .del {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #3d3d70;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1;
+  }
+  .saved-chip .del:active { background: var(--fumble); color: #fff; }
+
+  .quick {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .quick button {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 9px 4px;
+    border: 1px solid #36366a;
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .quick button:active { background: var(--accent); color: #fff; }
+
+  .modrow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .modlabel { color: var(--muted); font-size: 14px; font-weight: 600; flex: 1; }
+  .modrow button {
+    width: 46px;
+    height: 46px;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+    border: 1px solid #36366a;
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    transition: transform .08s, background .12s;
+  }
+  .modrow button:active { transform: scale(0.92); background: var(--accent); color: #fff; }
+  #modValue {
+    min-width: 52px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--accent2);
+  }
+
+  .error {
+    background: #3a1f2e;
+    border: 1px solid var(--fumble);
+    color: #ffb3b3;
+    padding: 12px 14px;
+    border-radius: 12px;
+    margin-bottom: 14px;
+    font-size: 14px;
+  }
+
+  .result-card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    animation: pop .25s ease;
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .rc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .rc-macro { font-size: 16px; font-weight: 700; color: var(--accent2); padding-top: 2px; }
+  .rc-total { font-size: 34px; font-weight: 800; line-height: 1; flex-shrink: 0; }
+  .rc-meta { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+
+  .dice {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+    gap: 8px;
+  }
+  .die {
+    height: 40px;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: #2b2b52;
+    font-weight: 700;
+    font-size: 17px;
+    border: 1px solid #3d3d70;
+  }
+  .rc-total.hit { color: var(--accent2); }
+  .rc-total.miss { color: var(--muted); }
+
+  .modifier {
+    min-width: 40px;
+    height: 40px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: transparent;
+    border: 1px dashed #4d4d80;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--muted);
+  }
+
+  .roll-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(46px, 1fr));
+    gap: 8px;
+  }
+  .roll-pill {
+    height: 44px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: #2b2b52;
+    border: 1px solid #3d3d70;
+    font-size: 19px;
+    font-weight: 800;
+  }
+  .roll-pill.hit { background: #14402f; border-color: var(--accent2); color: #6ff0cf; }
+  .roll-pill.miss { background: #2b2b52; border-color: #3d3d70; color: var(--muted); opacity: .65; }
+
+  #results {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    /* fade older results out at the bottom edge as they scroll off */
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+    padding-bottom: 8px;
+  }
+  #clearBtn {
+    flex: 0 0 auto;
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 11px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  #clearBtn:active { color: var(--text); }
+  .empty { text-align: center; color: var(--muted); margin-top: 30px; font-size: 14px; }
+</style>
+</head>
+<body>
+  <div class="top">
+  <header>
+    <h1>🎲 Dice Roller</h1>
+    <p><strong>10#1d20+8 ac15</strong> — 10 attacks vs AC 15</p>
+  </header>
+
+  <div class="input-row">
+    <input id="macro" type="text" inputmode="text" autocomplete="off"
+           autocapitalize="off" autocorrect="off" spellcheck="false"
+           placeholder="1d20+8, 4d6+2, 10#1d20+8..." enterkeyhint="go">
+    <button id="rollBtn">Roll</button>
+    <button id="saveBtn" title="Save this roll">★</button>
+  </div>
+
+  <div id="saved" class="saved"></div>
+
+  <div class="quick">
+    <button data-macro="1d20">d20</button>
+    <button data-macro="1d12">d12</button>
+    <button data-macro="1d10">d10</button>
+    <button data-macro="1d8">d8</button>
+    <button data-macro="1d6">d6</button>
+    <button data-macro="1d4">d4</button>
+  </div>
+
+  <div class="modrow">
+    <span class="modlabel">Modifier</span>
+    <button id="modMinus" aria-label="decrease modifier">−</button>
+    <span id="modValue">+0</span>
+    <button id="modPlus" aria-label="increase modifier">+</button>
+  </div>
+
+  <div id="errorBox"></div>
+  </div><!-- /.top -->
+
+  <div id="results"></div>
+  <button id="clearBtn" style="display:none">Clear results</button>
+
+<script>
+(function () {
+  "use strict";
+
+  var input = document.getElementById("macro");
+  var rollBtn = document.getElementById("rollBtn");
+  var saveBtn = document.getElementById("saveBtn");
+  var modMinus = document.getElementById("modMinus");
+  var modPlus = document.getElementById("modPlus");
+  var modValue = document.getElementById("modValue");
+  var savedBox = document.getElementById("saved");
+  var clearBtn = document.getElementById("clearBtn");
+  var results = document.getElementById("results");
+  var errorBox = document.getElementById("errorBox");
+
+  var STORAGE_KEY = "diceRoller.savedMacros";
+
+  // Reliable tap binding for iOS Safari: a tap fires touchend (which we treat as
+  // the activation and preventDefault to cancel the lagging/ghost click), while
+  // desktop still works through the click listener.
+  function onTap(elm, fn) {
+    var moved = false;
+    elm.addEventListener("touchstart", function () { moved = false; }, { passive: true });
+    elm.addEventListener("touchmove", function () { moved = true; }, { passive: true });
+    elm.addEventListener("touchend", function (e) {
+      if (moved) return;       // it was a scroll/drag, not a tap
+      e.preventDefault();      // stop the synthesized click that follows
+      fn.call(elm, e);
+    });
+    elm.addEventListener("click", function (e) { fn.call(elm, e); });
+  }
+
+  function loadSaved() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+
+  function persistSaved(list) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+
+  function renderSaved() {
+    var list = loadSaved();
+    savedBox.innerHTML = "";
+    list.forEach(function (macro) {
+      var chip = el("span", "saved-chip");
+      var label = el("span", null, macro);
+      onTap(label, function () {
+        input.value = macro;
+        updateModDisplay();
+        roll();
+      });
+      var del = el("span", "del", "✕");
+      onTap(del, function (e) {
+        e.stopPropagation();
+        var next = loadSaved().filter(function (m) { return m !== macro; });
+        persistSaved(next);
+        renderSaved();
+      });
+      chip.appendChild(label);
+      chip.appendChild(del);
+      savedBox.appendChild(chip);
+    });
+  }
+
+  function saveCurrent() {
+    var macro = input.value.trim();
+    if (!macro) { showError("Enter a roll to save, e.g. 10#1d20+8"); return; }
+    // Validate before saving so we don't store junk (strip AC + repeat prefixes first)
+    try {
+      var core = macro.replace(/\s+(?:ac|vs|dc)\s*\d+\s*$/i, "").trim();
+      var rep = /^(\d+)\s*[#x]\s*(.+)$/i.exec(core);
+      parseMacro(rep ? rep[2].trim() : core);
+    } catch (err) { showError(err.message); return; }
+    clearError();
+    var list = loadSaved();
+    if (list.indexOf(macro) === -1) {
+      list.push(macro);
+      persistSaved(list);
+      renderSaved();
+    }
+    if (window.navigator && navigator.vibrate) navigator.vibrate(10);
+  }
+
+  // Crypto-backed random integer in [1, sides]
+  function rollDie(sides) {
+    if (window.crypto && window.crypto.getRandomValues) {
+      // Rejection sampling to avoid modulo bias
+      var max = Math.floor(0xFFFFFFFF / sides) * sides;
+      var buf = new Uint32Array(1);
+      var x;
+      do {
+        window.crypto.getRandomValues(buf);
+        x = buf[0];
+      } while (x >= max);
+      return (x % sides) + 1;
+    }
+    return Math.floor(Math.random() * sides) + 1;
+  }
+
+  // Parse a macro into terms. Supports: NdS, +N, -N, +NdS, -NdS
+  // e.g. "4d20+4", "2d8+1d6-2", "d20"
+  function parseMacro(text) {
+    var cleaned = text.replace(/\s+/g, "").toLowerCase();
+    if (!cleaned) throw new Error("Enter a dice macro, e.g. 1d20 or 4d6+2");
+
+    // Tokenize into signed terms
+    var termRegex = /([+-]?)(\d*)d(\d+)|([+-]?)(\d+)/g;
+    var terms = [];
+    var consumed = 0;
+    var m;
+    while ((m = termRegex.exec(cleaned)) !== null) {
+      // Guard against regex skipping invalid characters
+      if (m.index !== consumed) {
+        throw new Error('Could not understand "' + text + '"');
+      }
+      consumed = termRegex.lastIndex;
+
+      if (m[3] !== undefined && m[3] !== "") {
+        // Dice term
+        var sign = m[1] === "-" ? -1 : 1;
+        var count = m[2] === "" ? 1 : parseInt(m[2], 10);
+        var sides = parseInt(m[3], 10);
+        if (count < 1 || count > 1000) throw new Error("Dice count must be 1–1000");
+        if (sides < 2 || sides > 1000) throw new Error("Dice sides must be 2–1000");
+        terms.push({ type: "dice", sign: sign, count: count, sides: sides });
+      } else {
+        // Flat modifier
+        var msign = m[4] === "-" ? -1 : 1;
+        terms.push({ type: "mod", value: msign * parseInt(m[5], 10) });
+      }
+    }
+    if (consumed !== cleaned.length || terms.length === 0) {
+      throw new Error('Could not understand "' + text + '"');
+    }
+    return terms;
+  }
+
+  function evaluate(terms) {
+    var diceGroups = []; // { sides, sign, rolls: [...] }
+    var modifier = 0;
+    var total = 0;
+
+    terms.forEach(function (t) {
+      if (t.type === "mod") {
+        modifier += t.value;
+        total += t.value;
+      } else {
+        var rolls = [];
+        for (var i = 0; i < t.count; i++) {
+          var r = rollDie(t.sides);
+          rolls.push(r);
+          total += r * t.sign;
+        }
+        // Sort each group's rolls high to low
+        rolls.sort(function (a, b) { return b - a; });
+        diceGroups.push({ sides: t.sides, sign: t.sign, rolls: rolls });
+      }
+    });
+
+    return { diceGroups: diceGroups, modifier: modifier, total: total };
+  }
+
+  function el(tag, className, text) {
+    var e = document.createElement(tag);
+    if (className) e.className = className;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function renderResult(macroText, evalResult, ac) {
+    var card = el("div", "result-card");
+
+    var hit = ac != null && evalResult.total >= ac;
+    var head = el("div", "rc-head");
+    head.appendChild(el("span", "rc-macro", macroText + (ac != null ? " vs AC " + ac : "")));
+    var totalEl = el("span", "rc-total" + (ac != null ? (hit ? " hit" : " miss") : ""),
+      String(evalResult.total));
+    head.appendChild(totalEl);
+    card.appendChild(head);
+
+    // Meta line: count of dice
+    var totalDice = evalResult.diceGroups.reduce(function (n, g) {
+      return n + g.rolls.length;
+    }, 0);
+    var metaParts = [totalDice + (totalDice === 1 ? " die" : " dice")];
+    if (evalResult.modifier !== 0) {
+      metaParts.push("modifier " + (evalResult.modifier > 0 ? "+" : "") + evalResult.modifier);
+    }
+    if (ac != null) metaParts.push(hit ? "✓ hit" : "✗ miss");
+    card.appendChild(el("div", "rc-meta", metaParts.join(" · ") + " · sorted high → low"));
+
+    var diceWrap = el("div", "dice");
+    evalResult.diceGroups.forEach(function (g) {
+      g.rolls.forEach(function (r) {
+        var d = el("div", "die", (g.sign < 0 ? "−" : "") + r);
+        diceWrap.appendChild(d);
+      });
+    });
+    if (evalResult.modifier !== 0) {
+      diceWrap.appendChild(el("div", "modifier",
+        (evalResult.modifier > 0 ? "+" : "−") + Math.abs(evalResult.modifier)));
+    }
+    card.appendChild(diceWrap);
+
+    results.insertBefore(card, results.firstChild);
+    clearBtn.style.display = "block";
+  }
+
+  function renderRepeated(macroText, rolls, ac) {
+    var sorted = rolls.slice().sort(function (a, b) { return b.total - a.total; });
+    var totals = sorted.map(function (r) { return r.total; });
+    var sum = totals.reduce(function (a, b) { return a + b; }, 0);
+
+    var card = el("div", "result-card");
+
+    var head = el("div", "rc-head");
+    head.appendChild(el("span", "rc-macro",
+      rolls.length + "× " + macroText + (ac != null ? " vs AC " + ac : "")));
+    head.appendChild(el("span", "rc-total", String(sum)));
+    card.appendChild(head);
+
+    var metaParts = [rolls.length + " rolls", "high → low", "avg " + (sum / rolls.length).toFixed(1)];
+    if (ac != null) {
+      var hits = totals.filter(function (t) { return t >= ac; }).length;
+      metaParts.push(hits + "/" + rolls.length + " hit");
+    }
+    card.appendChild(el("div", "rc-meta", metaParts.join(" · ")));
+
+    var list = el("div", "roll-list");
+    sorted.forEach(function (r) {
+      var cls = "roll-pill";
+      if (ac != null) cls += r.total >= ac ? " hit" : " miss";
+      list.appendChild(el("div", cls, String(r.total)));
+    });
+    card.appendChild(list);
+
+    results.insertBefore(card, results.firstChild);
+    clearBtn.style.display = "block";
+  }
+
+  function showError(msg) {
+    errorBox.innerHTML = "";
+    var e = el("div", "error", msg);
+    errorBox.appendChild(e);
+  }
+
+  function clearError() { errorBox.innerHTML = ""; }
+
+  function roll() {
+    var text = input.value.trim() || "1d20";
+    try {
+      // AC check syntax (trailing): "1d20+8 ac15", "10#1d20+8 vs 15", "... dc14"
+      var ac = null;
+      var working = text;
+      var acMatch = /\s+(?:ac|vs|dc)\s*(\d+)\s*$/i.exec(text);
+      if (acMatch) {
+        ac = parseInt(acMatch[1], 10);
+        working = text.slice(0, acMatch.index).trim();
+      }
+      // Repeat syntax: "10#1d20+8" or "10x 1d20+8" → roll the macro 10 separate times
+      var repeat = 1;
+      var macroText = working;
+      var rep = /^(\d+)\s*[#x]\s*(.+)$/i.exec(working);
+      if (rep) {
+        repeat = parseInt(rep[1], 10);
+        macroText = rep[2].trim();
+        if (repeat < 1 || repeat > 100) throw new Error("Repeat count must be 1–100");
+      }
+      var terms = parseMacro(macroText);
+      clearError();
+      if (repeat > 1) {
+        var rolls = [];
+        for (var i = 0; i < repeat; i++) rolls.push(evaluate(terms));
+        renderRepeated(macroText, rolls, ac);
+      } else {
+        renderResult(macroText, evaluate(terms), ac);
+      }
+      results.scrollTop = 0; // keep the newest result fully in view
+      if (window.navigator && navigator.vibrate) navigator.vibrate(15);
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+
+  // ---- Modifier stepper ----
+  // Split a trailing AC suffix off the macro: "1d4+2 ac15" -> ["1d4+2", " ac15"]
+  function splitAc(text) {
+    var m = /(\s+(?:ac|vs|dc)\s*\d+)\s*$/i.exec(text);
+    return m ? [text.slice(0, m.index).replace(/\s+$/, ""), m[1]] : [text, ""];
+  }
+  function trailingMod(core) {
+    var m = /([+-]\d+)$/.exec(core);
+    return m ? parseInt(m[1], 10) : 0;
+  }
+  function updateModDisplay() {
+    var n = trailingMod(splitAc(input.value.trim())[0]);
+    modValue.textContent = (n >= 0 ? "+" : "") + n;
+  }
+  function adjustMod(delta) {
+    var parts = splitAc(input.value.trim());
+    var core = parts[0].replace(/[+-]\d+$/, "");          // strip existing trailing mod
+    var next = trailingMod(parts[0]) + delta;
+    var modStr = next > 0 ? "+" + next : (next < 0 ? String(next) : "");
+    input.value = core + modStr + parts[1];
+    updateModDisplay();
+  }
+
+  onTap(modPlus, function () { adjustMod(1); });
+  onTap(modMinus, function () { adjustMod(-1); });
+  input.addEventListener("input", updateModDisplay);
+
+  onTap(rollBtn, roll);
+  onTap(saveBtn, saveCurrent);
+
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); roll(); input.blur(); }
+  });
+
+  document.querySelectorAll(".quick button").forEach(function (b) {
+    onTap(b, function () {
+      var base = b.getAttribute("data-macro"); // e.g. "1d4"
+      var cur = input.value.trim();
+      // Is the input already this die (optionally repeated), with an optional
+      // trailing modifier / AC we should preserve? e.g. "2#1d4+4 ac15"
+      var esc = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      var m = new RegExp("^(?:(\\d+)\\s*[#x]\\s*)?" + esc + "(?![0-9d])(.*)$", "i").exec(cur);
+      var count = m ? (m[1] ? parseInt(m[1], 10) : 1) : 0;
+      var rest = m ? m[2] : ""; // e.g. "+4", "+4 ac15", or ""
+      count += 1;
+      input.value = (count > 1 ? count + "#" : "") + base + rest;
+      updateModDisplay();
+    });
+  });
+
+  onTap(clearBtn, function () {
+    results.innerHTML = "";
+    clearBtn.style.display = "none";
+    clearError();
+  });
+
+  renderSaved();
+  updateModDisplay();
+})();
+</script>
+</body>
+</html>
