@@ -232,6 +232,23 @@
     font-size: 17px;
     border: 1px solid #3d3d70;
   }
+  /* a die that landed on its maximum face (20 on a d20, 4 on a d4, ...) */
+  .die.max, .roll-pill.max {
+    position: relative;
+    overflow: hidden;
+    background: #3a3320;
+    border-color: var(--crit);
+    color: var(--crit);
+    box-shadow: 0 0 0 1px var(--crit) inset;
+    animation: maxGlow 1.8s ease-in-out infinite;
+  }
+  @keyframes maxGlow {
+    0%, 100% { box-shadow: 0 0 0 1px var(--crit) inset, 0 0 4px rgba(255,206,84,0.4); }
+    50% { box-shadow: 0 0 0 1px var(--crit) inset, 0 0 12px rgba(255,206,84,0.85); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .die.max, .roll-pill.max { animation: none; }
+  }
   .rc-total.hit { color: var(--accent2); }
   .rc-total.miss { color: var(--muted); }
 
@@ -269,6 +286,8 @@
   }
   .roll-pill.hit { background: #14402f; border-color: var(--accent2); color: #6ff0cf; }
   .roll-pill.miss { background: #2b2b52; border-color: #3d3d70; color: var(--muted); opacity: .65; }
+  /* a roll containing a natural max die (e.g. a 20 on a d20) — see .die.max rule */
+  .roll-pill.max { opacity: 1; }
 
   #results {
     flex: 1 1 auto;
@@ -502,6 +521,13 @@
     return { diceGroups: diceGroups, modifier: modifier, total: total };
   }
 
+  // True if any die in the result landed on its maximum face (e.g. a 20 on a d20)
+  function isMaxRoll(r) {
+    return r.diceGroups.some(function (g) {
+      return g.rolls.some(function (v) { return v === g.sides; });
+    });
+  }
+
   function el(tag, className, text) {
     var e = document.createElement(tag);
     if (className) e.className = className;
@@ -534,8 +560,8 @@
     var diceWrap = el("div", "dice");
     evalResult.diceGroups.forEach(function (g) {
       g.rolls.forEach(function (r) {
-        var d = el("div", "die", (g.sign < 0 ? "−" : "") + r);
-        diceWrap.appendChild(d);
+        var cls = "die" + (r === g.sides ? " max" : "");
+        diceWrap.appendChild(el("div", cls, (g.sign < 0 ? "−" : "") + r));
       });
     });
     if (evalResult.modifier !== 0) {
@@ -571,7 +597,8 @@
     var list = el("div", "roll-list");
     sorted.forEach(function (r) {
       var cls = "roll-pill";
-      if (ac != null) cls += r.total >= ac ? " hit" : " miss";
+      if (isMaxRoll(r)) cls += " max";          // natural max takes visual priority
+      else if (ac != null) cls += r.total >= ac ? " hit" : " miss";
       list.appendChild(el("div", cls, String(r.total)));
     });
     card.appendChild(list);
